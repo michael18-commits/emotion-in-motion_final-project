@@ -8,12 +8,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 from typing import Optional
 
-# Optional OpenAI (enabled when API key is provided)
-try:
-    from openai import OpenAI
-    OPENAI_AVAILABLE = True
-except Exception:
-    OPENAI_AVAILABLE = False
+# OpenAI (required for this app)
+from openai import OpenAI
 
 st.set_page_config(page_title="Emotion in Motion", page_icon="🎨", layout="wide")
 
@@ -147,24 +143,54 @@ Data snapshot: {desc}
 Keep it encouraging and specific. Limit to ~120 words.
 """.strip()
 
-def generate_ai_summary(df: pd.DataFrame, api_key: Optional[str]) -> Optional[str]:
-    if not OPENAI_AVAILABLE:
-        return None
-    key = api_key or st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
-    if not key:
-        return None
+def generate_ai_summary(df: pd.DataFrame, key: str) -> Optional[str]:
     try:
         client = OpenAI(api_key=key)
         prompt = build_summary_prompt(df)
         resp = client.responses.create(model="gpt-4o-mini", input=prompt)
         return getattr(resp, "output_text", "").strip() or None
-    except Exception:
-        return None
+    except Exception as e:
+        return f"(AI Summary error: {e})"
 
 # ================= Streamlit UI =================
 st.title("Emotion in Motion 🎨")
 st.caption("Turn your health & mood into generative art")
 
+# --- Mandatory API Key gate ---
+with st.container():
+    st.info("🔐 OpenAI API key is required to use this app.")
+    with st.expander("How to get an API key (step-by-step)"):
+        st.markdown("""
+**1. Sign in to OpenAI**  
+- Go to your OpenAI account (API dashboard).  
+- If you don't have an account, sign up and verify your email/phone.
+
+**2. Create a new secret key**  
+- Open the **API keys** page.  
+- Click **Create new secret key** → copy the key (it starts with `sk-`).
+
+**3. Keep it safe**  
+- Do **not** share publicly.  
+- If you lose it, create a new one (you can't view old keys).
+
+**Billing & limits**  
+- Usage may incur cost depending on model & traffic.  
+- For class demos: each student can paste their own key.
+""")
+
+api_key = st.text_input("Enter your OpenAI API key (required, not stored)", type="password")
+use_key = st.button("Use this key")
+
+if ("OPENAI_API_KEY" in st.secrets) and not api_key:
+    # Allow app owner to pre-configure a default key via secrets
+    api_key = st.secrets["OPENAI_API_KEY"]
+    use_key = True
+
+if not api_key or not use_key:
+    st.warning("Please enter your API key and click **Use this key** to continue.")
+    st.stop()
+
+# --- Data inputs (visible after key is provided) ---
 with st.sidebar:
     st.header("Input")
     mode = st.radio("Data Source", ["Upload CSV", "Manual Entry", "Use Sample"], index=0)
@@ -180,10 +206,6 @@ with st.sidebar:
 
     st.markdown("---")
     collage_on = st.checkbox("Create 7-day collage (if data available)", value=False)
-
-    st.markdown("---")
-    st.subheader("AI Health Summary (optional)")
-    api_key_override = st.text_input("OpenAI API Key (leave blank to use Secrets)", type="password", value="")
 
 col1, col2 = st.columns([1.2, 1])
 
@@ -215,7 +237,6 @@ with col1:
             fname = f"emotion_in_motion_collage_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
             st.download_button("Download Collage PNG", data=collage_bytes, file_name=fname, mime="image/png")
     else:
-        # Use manual inputs if no data uploaded
         steps_v = steps_today if df is None else int(df.iloc[-1].get("steps", steps_today) or steps_today)
         hr_v = hr_avg if df is None else float(df.iloc[-1].get("heart_rate_avg", hr_avg) or hr_avg)
         sleep_v = sleep_hours if df is None else float(df.iloc[-1].get("sleep_hours", sleep_hours) or sleep_hours)
@@ -241,13 +262,10 @@ with col2:
     st.markdown("---")
     st.subheader("AI Summary")
     if df is not None:
-        if OPENAI_AVAILABLE:
-            summary = generate_ai_summary(df, api_key_override)
-            if summary:
-                st.success(summary)
-            else:
-                st.caption("No API key or request failed. Add a key in Secrets or paste above.")
+        summary = generate_ai_summary(df, api_key)
+        if summary:
+            st.success(summary)
         else:
-            st.caption("OpenAI library not installed.")
+            st.caption("Could not generate summary. Please check your key or try again.")
     else:
         st.caption("Upload CSV or use sample to enable the summary.")

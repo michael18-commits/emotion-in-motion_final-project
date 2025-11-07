@@ -1,40 +1,11 @@
-# Emotion in Motion 🎨
-**Turning health & mood into generative art**
+# Emotion in Motion — API key required
+This version requires an OpenAI API key *before* the app can be used.
 
-## Overview
-An interactive Streamlit app that converts daily health metrics and mood into a personalized abstract artwork. Users can upload a CSV (flexible column names) or use sliders, export PNGs, and optionally generate a short **AI Health Summary** (OpenAI). A 7-day collage mode is included.
+## How to use
+1. Get your API key from your OpenAI dashboard (API keys → Create new secret key).
+2. Start the app and paste the key into the **Enter your API key** field.
+3. Click **Use this key** to unlock the interface.
 
-## How it works (mapping)
-- **Mood → Colors** (palette)
-- **Steps → Complexity** (shapes/bubbles)
-- **Heart rate → Flow/Jitter** (curvature)
-- **Sleep → Softness/Transparency**
-- **Fatigue → Density/Line weight**
-
-## Run locally
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
-
-## CSV format
-Preferred columns:
-```
-date, steps, heart_rate_avg, sleep_hours, mood, fatigue
-```
-Common aliases (auto-mapped): `step_count`, `avg_hr`, `sleep`, `tiredness`, etc.  
-See `sample_data.csv`.
-
-## Deploy (Streamlit Cloud)
-- Push to a **public GitHub repo**
-- Streamlit Cloud → **New app** → select `app.py` → Deploy  
-- To enable **AI Health Summary**, add this to **Secrets**:
-```
-OPENAI_API_KEY = "sk-..."
-```
-
-## Tech
-Python, Streamlit, NumPy, Pandas, Matplotlib, OpenAI.
-
-## License
-MIT (or your choice).
+You may also pre-configure an app-level key via Streamlit Secrets:
+- In Streamlit Cloud → Settings → Secrets: `OPENAI_API_KEY = "sk-..."`
+If a secret key exists, the app will auto-use it (no paste needed).
