@@ -1,11 +1,14 @@
-# Emotion in Motion — API key required
-This version requires an OpenAI API key *before* the app can be used.
+# Emotion in Motion — Professor-ready (visible API key design)
+This build shows the API key design clearly **on page**:
+- If `OPENAI_API_KEY` exists in **Streamlit Secrets**, the app auto-uses it and shows a green badge.
+- Otherwise, the app blocks and asks the user to paste an OpenAI API key (session-only, not stored).
+- The expander includes a didactic link to **Alpha Vantage** as a generic example of what an API key is.
 
-## How to use
-1. Get your API key from your OpenAI dashboard (API keys → Create new secret key).
-2. Start the app and paste the key into the **Enter your API key** field.
-3. Click **Use this key** to unlock the interface.
+Also includes a 10s per-session cooldown for AI calls to protect costs.
 
-You may also pre-configure an app-level key via Streamlit Secrets:
-- In Streamlit Cloud → Settings → Secrets: `OPENAI_API_KEY = "sk-..."`
-If a secret key exists, the app will auto-use it (no paste needed).
+## Deploy
+1) (Recommended) Put course key in Streamlit Cloud → App → Settings → Secrets:
+   `OPENAI_API_KEY = "sk-..."`
+2) Deploy; professor opens the link → green badge appears, no action needed.
+3) Python 3.11 pinned via `runtime.txt`.
+

@@ -1,5 +1,6 @@
 import io
 import os
+import time
 import random
 import numpy as np
 import pandas as pd
@@ -7,9 +8,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from datetime import datetime
 from typing import Optional
-
-# OpenAI (required for this app)
-from openai import OpenAI
+from openai import OpenAI  # required
 
 st.set_page_config(page_title="Emotion in Motion", page_icon="🎨", layout="wide")
 
@@ -139,58 +138,56 @@ You are a concise health coach and art explainer. Based on the following weekly 
 1) A short, positive health summary (2–3 sentences).
 2) One actionable suggestion (• one bullet).
 3) One sentence explaining how these inputs would influence the generative artwork (mapping: mood→colors, steps→complexity, heart rate→flow, sleep→softness, fatigue→density).
+Limit to ~80 words.
 Data snapshot: {desc}
-Keep it encouraging and specific. Limit to ~120 words.
 """.strip()
 
 def generate_ai_summary(df: pd.DataFrame, key: str) -> Optional[str]:
-    try:
-        client = OpenAI(api_key=key)
-        prompt = build_summary_prompt(df)
-        resp = client.responses.create(model="gpt-4o-mini", input=prompt)
-        return getattr(resp, "output_text", "").strip() or None
-    except Exception as e:
-        return f"(AI Summary error: {e})"
+    client = OpenAI(api_key=key)
+    prompt = build_summary_prompt(df)
+    resp = client.responses.create(model="gpt-4o-mini", input=prompt)
+    return getattr(resp, "output_text", "").strip() or None
 
-# ================= Streamlit UI =================
+# ================= Header with API key status =================
 st.title("Emotion in Motion 🎨")
-st.caption("Turn your health & mood into generative art")
+key_from_secret = "OPENAI_API_KEY" in st.secrets
+if key_from_secret:
+    st.markdown(":green-background[**AI enabled via course key — no action needed.**]")
 
-# --- Mandatory API Key gate ---
-with st.container():
-    st.info("🔐 OpenAI API key is required to use this app.")
-    with st.expander("How to get an API key (step-by-step)"):
-        st.markdown("""
-**1. Sign in to OpenAI**  
-- Go to your OpenAI account (API dashboard).  
-- If you don't have an account, sign up and verify your email/phone.
-
-**2. Create a new secret key**  
-- Open the **API keys** page.  
-- Click **Create new secret key** → copy the key (it starts with `sk-`).
-
-**3. Keep it safe**  
-- Do **not** share publicly.  
-- If you lose it, create a new one (you can't view old keys).
-
-**Billing & limits**  
-- Usage may incur cost depending on model & traffic.  
-- For class demos: each student can paste their own key.
+# ================= API & Privacy panel (always visible) =================
+with st.expander("🔑 API & Privacy — How keys work here", expanded=False):
+    st.markdown("""
+- This app **requires** an API key to enable AI summary.
+- If a **course key** is configured in Streamlit Secrets, the app auto-uses it (no manual input).
+- If no course key exists, you'll be asked to paste your own key — it is **not stored** and lives only in this session.
+- What is an API key? See a quick example site:  
+  👉 [Alpha Vantage — get a sample API key](https://www.alphavantage.co/support/#api-key)  
+  *(This is only to illustrate the concept; this app uses **OpenAI**.)*
 """)
 
-api_key = st.text_input("Enter your OpenAI API key (required, not stored)", type="password")
-use_key = st.button("Use this key")
+# --- Gate: require key (auto or manual) ---
+api_key = st.secrets.get("OPENAI_API_KEY", None)
+if not api_key:
+    st.info("🔐 No course key detected. Please paste your **OpenAI API key** below to continue (not stored).")
+    api_key = st.text_input("Enter your OpenAI API key (required)", type="password")
+    use_key = st.button("Use this key")
+    if not api_key or not use_key:
+        st.warning("Please enter your key and click **Use this key** to continue.")
+        st.stop()
 
-if ("OPENAI_API_KEY" in st.secrets) and not api_key:
-    # Allow app owner to pre-configure a default key via secrets
-    api_key = st.secrets["OPENAI_API_KEY"]
-    use_key = True
+# --- Rate limit (per session) for AI calls ---
+if "last_ai_call" not in st.session_state:
+    st.session_state.last_ai_call = 0.0
+def ai_allowed():
+    now = time.time()
+    if now - st.session_state.last_ai_call < 10:  # 10s cool-down
+        wait = int(10 - (now - st.session_state.last_ai_call))
+        st.warning(f"Too many requests. Please wait {wait}s before the next AI summary.")
+        return False
+    st.session_state.last_ai_call = now
+    return True
 
-if not api_key or not use_key:
-    st.warning("Please enter your API key and click **Use this key** to continue.")
-    st.stop()
-
-# --- Data inputs (visible after key is provided) ---
+# ================= Sidebar controls =================
 with st.sidebar:
     st.header("Input")
     mode = st.radio("Data Source", ["Upload CSV", "Manual Entry", "Use Sample"], index=0)
@@ -209,7 +206,7 @@ with st.sidebar:
 
 col1, col2 = st.columns([1.2, 1])
 
-# Data load
+# ================= Data load =================
 df = None
 if mode == "Upload CSV":
     uploaded = st.file_uploader("Upload CSV (preferred columns: date, steps, heart_rate_avg, sleep_hours, mood, fatigue)", type=["csv"])
@@ -228,6 +225,7 @@ elif mode == "Use Sample":
         "fatigue": [0.3,0.2,0.7,0.4,0.6,0.25,0.5],
     })
 
+# ================= Main area =================
 with col1:
     st.subheader("Generated Artwork")
     if collage_on and df is not None and len(df) >= 2:
@@ -250,22 +248,19 @@ with col1:
         st.download_button("Download PNG", data=png_bytes, file_name=fname, mime="image/png")
 
 with col2:
-    st.subheader("How inputs map → visuals")
-    st.markdown("""
-- **Mood → Colors** (palette)  
-- **Steps → Complexity** (shapes/bubbles)  
-- **Heart Rate → Flow/Jitter** (curvature/agitation)  
-- **Sleep → Softness/Transparency**  
-- **Fatigue → Density/Line Weight**  
-""")
-
-    st.markdown("---")
     st.subheader("AI Summary")
     if df is not None:
-        summary = generate_ai_summary(df, api_key)
-        if summary:
-            st.success(summary)
-        else:
-            st.caption("Could not generate summary. Please check your key or try again.")
+        if ai_allowed():
+            try:
+                summary = generate_ai_summary(df, api_key)
+                if summary:
+                    st.success(summary)
+                else:
+                    st.caption("Could not generate summary. Please check your key or try again.")
+            except Exception as e:
+                st.caption(f"AI Summary error: {e}")
     else:
         st.caption("Upload CSV or use sample to enable the summary.")
+
+st.markdown("---")
+st.caption("This page explicitly demonstrates API key handling: course key via Secrets (auto), or manual input (session-only).")
