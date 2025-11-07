@@ -347,7 +347,10 @@ with col1:
     if collage_on and df is not None and len(df) >= 2:
         collage_bytes = generate_collage(df, mood_fallback=mood, seed=img_seed)
         if collage_bytes:
-            st.image(collage_bytes, use_container_width=True)
+            from PIL import Image
+            collage_img = Image.open(io.BytesIO(collage_bytes))
+            st.image(collage_img, use_container_width=True)
+
             fname = f"emotion_in_motion_collage_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
             st.download_button("Download Collage PNG", data=collage_bytes, file_name=fname, mime="image/png")
     else:
@@ -370,7 +373,9 @@ with col1:
             fatigue=fatigue_v,
             mood=mood_v
         )
-        st.image(png_bytes, use_container_width=True)
+        from PIL import Image
+        img = Image.open(io.BytesIO(png_bytes))
+        st.image(img, use_container_width=True)
         fname = f"emotion_in_motion_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
         st.download_button("Download PNG", data=png_bytes, file_name=fname, mime="image/png")
 
