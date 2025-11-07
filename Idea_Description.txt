@@ -1,0 +1,22 @@
+Idea Description — Emotion in Motion
+
+Concept
+Emotion in Motion is an interactive generative art project that transforms everyday health signals—steps, average heart rate, sleep, fatigue, and mood—into a unique visual artwork. Instead of reading numbers, users can see their body rhythm as color, texture, and motion-like flow.
+
+Motivation
+We increasingly quantify our lives with wearables and health apps, yet these dashboards rarely feel emotional or aesthetic. This project reframes personal metrics as “visual poetry,” inviting people to experience well-being beyond charts.
+
+Method
+Users upload a simple CSV (or use sliders) in a Streamlit web app. The system maps inputs to visual parameters:
+- Mood → Color palette
+- Steps → Complexity / number of shapes
+- Heart rate → Flow curvature / jitter
+- Sleep → Softness / transparency
+- Fatigue → Density / line weight
+A custom noise-based flow field and layered gradients produce an abstract composition that feels alive and personal.
+
+Tech Stack
+Python, Streamlit, NumPy, Pandas, Matplotlib, OpenAI (optional summary). CSV exports from Google Fit / Apple Health / Samsung Health are supported via column aliasing.
+
+Outcome
+A shareable PNG, a 7-day collage, and an optional AI-written health summary. Emotion in Motion merges data, code, and aesthetics, turning health logs into a personalized, contemplative artwork.
