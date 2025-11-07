@@ -148,34 +148,48 @@ def generate_ai_summary(df: pd.DataFrame, key: str) -> Optional[str]:
     resp = client.responses.create(model="gpt-4o-mini", input=prompt)
     return getattr(resp, "output_text", "").strip() or None
 
-# ================= Header with API key status =================
+# ================= Header & Key Handling =================
 st.title("Emotion in Motion 🎨")
-key_from_secret = "OPENAI_API_KEY" in st.secrets
-if key_from_secret:
-    st.markdown(":green-background[**AI enabled via course key — no action needed.**]")
 
-# ================= API & Privacy panel (always visible) =================
-with st.expander("🔑 API & Privacy — How keys work here", expanded=False):
-    st.markdown("""
+# 1) Try course key from Secrets first
+course_key = st.secrets.get("OPENAI_API_KEY", None)
+
+# 2) Persist manual key in session_state
+if "api_key" not in st.session_state:
+    st.session_state.api_key = None
+
+# If a course key exists, use it; else, use persisted manual key
+effective_key = course_key or st.session_state.api_key
+
+# If neither exists, show gate form
+if not effective_key:
+    with st.expander("🔑 API & Privacy — How keys work here", expanded=True):
+        st.markdown("""
 - This app **requires** an API key to enable AI summary.
 - If a **course key** is configured in Streamlit Secrets, the app auto-uses it (no manual input).
-- If no course key exists, you'll be asked to paste your own key — it is **not stored** and lives only in this session.
+- If no course key exists, please paste your own key — it is **not stored** and lives only in this session.
 - What is an API key? See a quick example site:  
   👉 [Alpha Vantage — get a sample API key](https://www.alphavantage.co/support/#api-key)  
   *(This is only to illustrate the concept; this app uses **OpenAI**.)*
 """)
+    with st.form("api_key_form", clear_on_submit=False):
+        typed = st.text_input("Enter your OpenAI API key (required)", type="password")
+        submitted = st.form_submit_button("Use this key")
+        if submitted:
+            if typed.strip():
+                st.session_state.api_key = typed.strip()
+                st.rerun()
+            else:
+                st.warning("Please paste a valid key.")
+    st.stop()
+else:
+    # show status badge
+    if course_key:
+        st.markdown(":green-background[**AI enabled via course key — no action needed.**]")
+    else:
+        st.markdown(":blue-background[**AI enabled via your session key.**]")
 
-# --- Gate: require key (auto or manual) ---
-api_key = st.secrets.get("OPENAI_API_KEY", None)
-if not api_key:
-    st.info("🔐 No course key detected. Please paste your **OpenAI API key** below to continue (not stored).")
-    api_key = st.text_input("Enter your OpenAI API key (required)", type="password")
-    use_key = st.button("Use this key")
-    if not api_key or not use_key:
-        st.warning("Please enter your key and click **Use this key** to continue.")
-        st.stop()
-
-# --- Rate limit (per session) for AI calls ---
+# --- Simple per-session cooldown to avoid rapid repeat calls
 if "last_ai_call" not in st.session_state:
     st.session_state.last_ai_call = 0.0
 def ai_allowed():
@@ -252,7 +266,7 @@ with col2:
     if df is not None:
         if ai_allowed():
             try:
-                summary = generate_ai_summary(df, api_key)
+                summary = generate_ai_summary(df, effective_key)
                 if summary:
                     st.success(summary)
                 else:
@@ -263,4 +277,4 @@ with col2:
         st.caption("Upload CSV or use sample to enable the summary.")
 
 st.markdown("---")
-st.caption("This page explicitly demonstrates API key handling: course key via Secrets (auto), or manual input (session-only).")
+st.caption("API key persists within this session. Changing sidebar controls won't reset it.")
